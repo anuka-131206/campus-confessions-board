@@ -52,7 +52,7 @@ jobs:
       - run:
           name: Wait for Postgres and Redis
           command: |
-            python - <<'PY'
+            python - \<<'PY'
             import socket
             import time
 
@@ -78,7 +78,7 @@ jobs:
       - run:
           name: Apply migrations
           command: |
-            python - <<'PY'
+            python - \<<'PY'
             import glob
             import os
             import time
