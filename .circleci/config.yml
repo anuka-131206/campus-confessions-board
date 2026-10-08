@@ -104,7 +104,7 @@ jobs:
           name: Integration tests
           command: python -m pytest tests/integration --cov=app --cov-report=term-missing
 
-   secret_scan:
+  secret_scan:
     machine:
       image: ubuntu-2404:current
     steps:
