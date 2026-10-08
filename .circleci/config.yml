@@ -122,16 +122,25 @@ jobs:
           name: Scan repository for secrets
           command: gitleaks detect --source . --no-banner --redact
 
-  image_build:
-    machine:
-      image: ubuntu-2404:current
+    image_build:
+    docker:
+      - image: cimg/base:stable
     steps:
       - checkout
+
       - setup_remote_docker:
           docker_layer_caching: true
+
       - run:
           name: Build Docker image
-          command: docker build --pull -t campus-confessions:1.0 .
+          command: |
+            docker build -t ${DOCKERHUB_USERNAME}/campus-confessions-board:1.0 .
+
+      - run:
+          name: Push Docker image
+          command: |
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            docker push ${DOCKERHUB_USERNAME}/campus-confessions-board:1.0
 
 workflows:
   build_test_scan:
