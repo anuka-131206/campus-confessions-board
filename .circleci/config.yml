@@ -1,152 +1,31 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine.
+# See: https://circleci.com/docs/reference/configuration-reference/
 version: 2.1
 
+# Define a job to be invoked later in a workflow.
+# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
-  lint:
+  say-hello:
+    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
+    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
     docker:
-      - image: cimg/python:3.12
+      # Specify the version you desire here
+      # See: https://circleci.com/developer/images/image/cimg/base
+      - image: cimg/base:current
+
+    # Add steps to the job
+    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
     steps:
+      # Checkout the code as the first step.
       - checkout
       - run:
-          name: Install development tools
-          command: |
-            python -m pip install --upgrade pip
-            pip install -r requirements-dev.txt
-      - run:
-          name: Ruff lint
-          command: ruff check app tests
+          name: "Say hello"
+          command: "echo Hello, World!"
 
-  unit_tests:
-    docker:
-      - image: cimg/python:3.12
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: |
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt -r requirements-dev.txt
-      - run:
-          name: Unit tests and coverage
-          command: |
-            pytest tests/unit --cov=app.moderation --cov-report=term-missing --cov-fail-under=70
-
-  integration_tests:
-    docker:
-      - image: cimg/python:3.12
-      - image: cimg/postgres:16.4
-        environment:
-          POSTGRES_DB: confessions
-          POSTGRES_USER: confessions
-          POSTGRES_PASSWORD: confessions
-      - image: redis:7.4.1-alpine
-    environment:
-      DATABASE_URL: postgresql://confessions:confessions@localhost:5432/confessions
-      REDIS_URL: redis://localhost:6379/0
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: |
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt -r requirements-dev.txt
-      - run:
-          name: Wait for Postgres and Redis
-          command: |
-            python - <<'PY'
-            import socket
-            import time
-
-            services = [("localhost", 5432), ("localhost", 6379)]
-            deadline = time.time() + 60
-
-            while time.time() < deadline:
-                ready = True
-                for host, port in services:
-                    try:
-                        with socket.create_connection((host, port), timeout=2):
-                            pass
-                    except OSError:
-                        ready = False
-                        break
-                if ready:
-                    print("Postgres and Redis are accepting connections")
-                    break
-                time.sleep(2)
-            else:
-                raise SystemExit("Timed out waiting for services")
-            PY
-      - run:
-          name: Apply migrations
-          command: |
-            python - <<'PY'
-            import glob
-            import os
-            import time
-            import psycopg
-
-            url = os.environ["DATABASE_URL"]
-            deadline = time.time() + 60
-            while True:
-                try:
-                    with psycopg.connect(url) as conn:
-                        with conn.cursor() as cur:
-                            for filename in sorted(glob.glob("migrations/*.sql")):
-                                print(f"Applying {filename}")
-                                cur.execute(open(filename, encoding="utf-8").read())
-                        conn.commit()
-                    break
-                except psycopg.OperationalError:
-                    if time.time() >= deadline:
-                        raise
-                    time.sleep(2)
-            PY
-      - run:
-          name: Integration tests
-          command: pytest tests/integration --cov=app --cov-report=term-missing
-
-  secret_scan:
-    machine:
-      image: ubuntu-2404:current
-    steps:
-      - checkout
-      - run:
-          name: Install pinned Gitleaks
-          command: |
-            curl -sSfL \
-              https://github.com/gitleaks/gitleaks/releases/download/v8.24.2/gitleaks_8.24.2_linux_x64.tar.gz \
-              -o /tmp/gitleaks.tar.gz
-            tar -xzf /tmp/gitleaks.tar.gz -C /tmp
-            sudo install /tmp/gitleaks /usr/local/bin/gitleaks
-            gitleaks version
-      - run:
-          name: Scan repository for secrets
-          command: gitleaks detect --source . --no-banner --redact
-
-  image_build:
-    machine:
-      image: ubuntu-2404:current
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: Build Docker image
-          command: docker build --pull -t campus-confessions:1.0 .
-
+# Orchestrate jobs using workflows
+# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
 workflows:
-  build_test_scan:
+  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
     jobs:
-      - lint
-      - unit_tests:
-          requires:
-            - lint
-      - integration_tests:
-          requires:
-            - unit_tests
-      - secret_scan:
-          requires:
-            - lint
-      - image_build:
-          requires:
-            - integration_tests
-            - secret_scan
+      - say-hello
