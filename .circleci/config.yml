@@ -28,7 +28,7 @@ jobs:
       - run:
           name: Unit tests and coverage
           command: |
-            pytest tests/unit --cov=app.moderation --cov-report=term-missing --cov-fail-under=70
+            python -m pytest tests/unit --cov=app.moderation --cov-report=term-missing --cov-fail-under=70
 
   integration_tests:
     docker:
@@ -102,7 +102,7 @@ jobs:
             PY
       - run:
           name: Integration tests
-          command: pytest tests/integration --cov=app --cov-report=term-missing
+          command: python -m pytest tests/integration --cov=app --cov-report=term-missing
 
   secret_scan:
     machine:
