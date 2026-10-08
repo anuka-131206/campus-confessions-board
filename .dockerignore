@@ -1,0 +1,11 @@
+.git
+.gitignore
+.circleci
+__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+htmlcov
+tests
+README.md
+requirements-dev.txt
