@@ -104,7 +104,7 @@ jobs:
           name: Integration tests
           command: python -m pytest tests/integration --cov=app --cov-report=term-missing
 
-  secret_scan:
+   secret_scan:
     machine:
       image: ubuntu-2404:current
     steps:
@@ -122,7 +122,7 @@ jobs:
           name: Scan repository for secrets
           command: gitleaks detect --source . --no-banner --redact
 
-    image_build:
+  image_build:
     docker:
       - image: cimg/base:stable
     steps:
