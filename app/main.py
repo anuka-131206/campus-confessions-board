@@ -97,18 +97,34 @@ def create_post(payload: dict = Body(...), x_device_id: str = Header(None)):
 
 
 @app.get("/posts")
-def list_posts(limit: int = 20):
-    rows = db.query("SELECT id, body, score, reports, created_at FROM posts"
-                    " WHERE status='published' ORDER BY created_at DESC LIMIT %s",
-                    (max(1, min(100, limit)),))
+def list_posts(limit: int = 20, search: str = ""):
+    search = search.strip()
+    if search:
+        rows = db.query(
+            "SELECT id, body, score, reports, created_at FROM posts"
+            " WHERE status='published' AND body ILIKE %s"
+            " ORDER BY created_at DESC LIMIT %s",
+            (f"%{search}%", max(1, min(100, limit))),
+        )
+    else:
+        rows = db.query(
+            "SELECT id, body, score, reports, created_at FROM posts"
+            " WHERE status='published' ORDER BY created_at DESC LIMIT %s",
+            (max(1, min(100, limit)),),
+        )
+
     out = []
     for r in rows:
-        out.append({**r, "score": _score(r["id"], r["score"]),
-                    "comments": db.one("SELECT count(*) AS n FROM comments WHERE post_id=%s",
-                                       (r["id"],))["n"]})
+        out.append({
+            **r,
+            "score": _score(r["id"], r["score"]),
+            "comments": db.one(
+                "SELECT count(*) AS n FROM comments WHERE post_id=%s",
+                (r["id"],),
+            )["n"],
+        })
     out.sort(key=lambda p: (-p["score"], p["id"]))
     return {"posts": out}
-
 
 @app.post("/posts/{post_id}/vote")
 def vote(post_id: int, payload: dict = Body(...), x_device_id: str = Header(None)):

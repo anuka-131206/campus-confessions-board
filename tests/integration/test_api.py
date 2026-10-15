@@ -113,3 +113,31 @@ def test_three_distinct_reports_pull_unpopular_post_back_to_queue(client):
 
     assert response.json()["status"] == "held"
     assert response.json()["back_in_queue"] is True
+
+def test_search_posts_matches_keyword_case_insensitively(client):
+    device = "integration-search-" + uuid.uuid4().hex
+    unique_word = "SearchTerm" + uuid.uuid4().hex
+
+    created = client.post(
+        "/posts",
+        headers={"X-Device-Id": device},
+        json={"body": f"Confession about {unique_word}"},
+    )
+    assert created.status_code == 201
+
+    response = client.get("/posts", params={"search": unique_word.lower()})
+    assert response.status_code == 200
+    assert any(
+        post["id"] == created.json()["id"]
+        for post in response.json()["posts"]
+    )
+
+
+def test_search_posts_returns_empty_list_for_no_match(client):
+    response = client.get(
+        "/posts",
+        params={"search": "no-match-" + uuid.uuid4().hex},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["posts"] == []
