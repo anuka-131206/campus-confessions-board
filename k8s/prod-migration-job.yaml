@@ -1,0 +1,48 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: prod
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: db-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: postgres:16.4-alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U confessions -d confessions; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+              for file in /migrations/*.sql; do
+                echo "Applying migration: $file"
+                psql -v ON_ERROR_STOP=1 -h postgres -U confessions -d confessions -f "$file"
+              done
+              echo "All migrations completed successfully."
+          env:
+            - name: PGHOST
+              value: postgres
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: confessions
+            - name: PGUSER
+              value: confessions
+            - name: PGPASSWORD
+              value: confessions
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+              readOnly: true
+      volumes:
+        - name: migrations
+          configMap:
+            name: confessions-migrations
