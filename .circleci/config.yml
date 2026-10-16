@@ -127,35 +127,87 @@ jobs:
       - image: cimg/base:stable
     steps:
       - checkout
-
       - setup_remote_docker:
           docker_layer_caching: true
 
       - run:
-          name: Build Docker image
+          name: Build and push environment image tags
           command: |
-            docker build -t ${DOCKERHUB_USERNAME}/campus-confessions-board:1.0 .
+            set -e
+            SHORT_SHA=$(echo "$CIRCLE_SHA1" | cut -c1-7)
+            BRANCH="$CIRCLE_BRANCH"
 
-      - run:
-          name: Push Docker image
-          command: |
-            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-            docker push ${DOCKERHUB_USERNAME}/campus-confessions-board:1.0
+            case "$BRANCH" in
+              main)
+                ENV_TAG="qa"
+                ;;
+              staging)
+                ENV_TAG="stage"
+                ;;
+              prod)
+                ENV_TAG="prod"
+                ;;
+              *)
+                echo "Unsupported branch: $BRANCH"
+                exit 1
+                ;;
+            esac
+
+            IMAGE="${DOCKERHUB_USER}/campus-confessions-board"
+
+            docker build \
+              -t "${IMAGE}:${ENV_TAG}" \
+              -t "${IMAGE}:${BRANCH}-${SHORT_SHA}" .
+
+            echo "$DOCKERHUB_TOKEN" | docker login \
+              -u "$DOCKERHUB_USER" --password-stdin
+
+            docker push "${IMAGE}:${ENV_TAG}"
+            docker push "${IMAGE}:${BRANCH}-${SHORT_SHA}"
+
 
 workflows:
-  build_test_scan:
+  qa_pipeline:
     jobs:
-      - lint
+      - lint:
+          filters:
+            branches:
+              only: main
+
       - unit_tests:
           requires:
             - lint
+          filters:
+            branches:
+              only: main
+
       - integration_tests:
           requires:
             - unit_tests
+          filters:
+            branches:
+              only: main
+
       - secret_scan:
           requires:
             - lint
+          filters:
+            branches:
+              only: main
+
       - image_build:
           requires:
             - integration_tests
             - secret_scan
+          filters:
+            branches:
+              only: main
+
+  promotion_images:
+    jobs:
+      - image_build:
+          filters:
+            branches:
+              only:
+                - staging
+                - prod
